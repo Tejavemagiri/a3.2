@@ -2,6 +2,9 @@
 import sys
 import time
 from easysnmp import Session
+if len(sys.argv) < 2:
+    print("Insufficient command-line arguments. Usage: python3 script.py <information>")
+    sys.exit(1)
 
 # Retrieve command-line arguments
 information = sys.argv[1]
