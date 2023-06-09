@@ -94,3 +94,5 @@ if samples == -1:
 else:
     sample1 = []
     for _ in range(samples):
+        easysnmp_prober()
+        time.sleep(sampleTime)
