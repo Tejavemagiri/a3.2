@@ -46,9 +46,14 @@ def easysnmp_prober():
                     if rate < 0:
                         if response[get_oids].snmp_type == 'COUNTER32':
                             oid_diff = oid_diff + 2 ** 32
-                    print(str(previous_time) + "|" + str(oid_diff / time_diff) + "|" + "|" + "|" + "|")
+                        elif response[get_oids].snmp_type == 'COUNTER64':
+                            oid_diff = oid_diff + 2 ** 64
+                    print(str(previous_time) + "|" + str(rate) + "|" + "|" + "|" + "|")
                 elif response[get_oids].snmp_type == 'GAUGE':
-                    print(str(previous_time) + "|" + response[get_oids].value + "|" + "|" + "|" + "|")
+                    current_value = int(response[get_oids].value)
+                    previous_value = int(current_oid[get_oids - 1])
+                    diff = current_value - previous_value
+                    print(str(previous_time) + "|" + str(current_value) + "|" + str(diff) + "|" + "|" + "|")
 
     current_oid = previous_oid
     current_time = previous_time
