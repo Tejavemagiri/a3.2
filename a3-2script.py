@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 
 import sys
 import time
@@ -10,76 +10,75 @@ ipAddress = arguments[0]
 port = arguments[1]
 community = arguments[2]
 sampleFreq = float(sys.argv[2])
-sampleTime = 1/sampleFreq
+sampleTime = 1 / sampleFreq
 samples = int(sys.argv[3])
+oidCounters = []
+oidGauges = []
 
-oids = []
 for i in range(4, len(sys.argv)):
-    oids.append(sys.argv[i])
-oids.insert(0, '1.3.6.1.2.1.1.3.0')
+    if sys.argv[i].startswith('1.3.6.1.4.1.4171.40.'):
+        oidCounters.append(sys.argv[i])
+    elif sys.argv[i].startswith('1.3.6.1.4.1.4171.60.'):
+        oidGauges.append(sys.argv[i])
 
-sample1 = []
-previousTime = 0
+oidCounters.insert(0, '1.3.6.1.2.1.1.3.0')
+oidGauges.insert(0, '1.3.6.1.2.1.1.3.0')
 
-def calculate_rate(value, previous_value, time_difference):
-    rate = (value - previous_value) / time_difference
-    return round(rate, 2)
+def calculate_rate(previous, current, time_diff):
+    if current < previous:
+        if current < 0:
+            current += 2 ** 32
+        rate = (current - previous) / time_diff
+        return rate
+    else:
+        return (current - previous) / time_diff
 
-def handle_counter32(counter):
-    if counter < 0:
-        counter += 2 ** 32
-    return counter
-
-def handle_counter64(counter):
-    if counter < 0:
-        counter += 2 ** 64
-    return counter
-
-def easysnmp_prober():
-    global sample1, previousTime
+def probe_oids(oids):
     session = Session(hostname=ipAddress, remote_port=port, community=community, version=2, timeout=1, retries=1)
     response = session.get(oids)
+    return [int(oid.value) if oid.value not in ('NOSUCHOBJECT', 'NOSUCHINSTANCE') else -1 for oid in response]
 
-    currentTime = int(response[0].value) * 0.01
-    sample2 = []
+def print_output(time, counters, gauges):
+    output = str(time) + " | "
+    for counter in counters:
+        output += str(round(counter)) + " | "
+    for i, gauge in enumerate(gauges):
+        output += str(round(gauge))
+        if i != len(gauges) - 1:
+            output += " | "
+    print(output)
 
-    for i in range(1, len(response)):
-        oid_value = response[i].value
-        if oid_value != 'NOSUCHOBJECT' and oid_value != 'NOSUCHINSTANCE' and oid_value != 'INVALID':
-            sample2.append(int(oid_value))
-
-    if previousTime != 0 and len(sample1) > 0:
-        timeDifference = currentTime - previousTime
-
-        for i in range(len(sample2)):
-            current_value = sample2[i]
-            previous_value = sample1[i]
-
-            if response[i+1].snmp_type == 'COUNTER32':
-                current_value = handle_counter32(current_value)
-                previous_value = handle_counter32(previous_value)
-            elif response[i+1].snmp_type == 'COUNTER64':
-                current_value = handle_counter64(current_value)
-                previous_value = handle_counter64(previous_value)
-
-            rate = calculate_rate(current_value, previous_value, timeDifference)
-
-            if response[i+1].snmp_type == 'GAUGE':
-                change = current_value - previous_value
-                print(f"{currentTime} | {current_value} (+{change}) |", end=' ')
-            else:
-                print(f"{currentTime} | {rate} |", end=' ')
-
-    sample1 = sample2
-    previousTime = currentTime
+counters_prev = probe_oids(oidCounters)
+gauges_prev = probe_oids(oidGauges)
 
 if samples == -1:
-    sample1 = []
     while True:
-        easysnmp_prober()
         time.sleep(sampleTime)
+        counters_curr = probe_oids(oidCounters)
+        gauges_curr = probe_oids(oidGauges)
+        current_time = int(time.time())
+
+        time_diff = current_time - counters_prev[0]
+        counters_rate = [calculate_rate(counters_prev[i], counters_curr[i], time_diff) for i in range(len(counters_curr))]
+        gauges_change = [gauges_curr[i] - gauges_prev[i] for i in range(len(gauges_curr))]
+
+        print_output(current_time, counters_rate, gauges_change)
+
+        counters_prev = counters_curr
+        gauges_prev = gauges_curr
+
 else:
-    sample1 = []
     for _ in range(samples):
-        easysnmp_prober()
         time.sleep(sampleTime)
+        counters_curr = probe_oids(oidCounters)
+        gauges_curr = probe_oids(oidGauges)
+        current_time = int(time.time())
+
+        time_diff = current_time - counters_prev[0]
+        counters_rate = [calculate_rate(counters_prev[i], counters_curr[i], time_diff) for i in range(len(counters_curr))]
+        gauges_change = [gauges_curr[i] - gauges_prev[i] for i in range(len(gauges_curr))]
+
+        print_output(current_time, counters_rate, gauges_change)
+
+        counters_prev = counters_curr
+        gauges_prev = gauges_curr
