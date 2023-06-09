@@ -53,7 +53,7 @@ def easysnmp_prober():
                     current_value = int(response[get_oids].value)
                     previous_value = int(current_oid[get_oids - 1])
                     diff = current_value - previous_value
-                    print(str(previous_time) + "|" + str(current_value) + "|" + str(diff) + "|" + "|" + "|")
+                    print(str(previous_time) + "|" + "|" + "|" + str(diff) + "|" + str(current_value) + "|")
 
     current_oid = previous_oid
     current_time = previous_time
