@@ -41,19 +41,15 @@ def easysnmp_prober():
             if count != 0 and len(current_oid) > 0:
                 oid_diff = int(previous_oid[get_oids - 1]) - int(current_oid[get_oids - 1])
                 time_diff = round(previous_time - current_time, 1)
-                if response[get_oids].snmp_type == 'COUNTER32' or response[get_oids].snmp_type == 'COUNTER64':
-                    rate = int(oid_diff / time_diff)
-                    if rate < 0:
-                        if response[get_oids].snmp_type == 'COUNTER32':
-                            oid_diff = oid_diff + 2 ** 32
-                        elif response[get_oids].snmp_type == 'COUNTER64':
-                            oid_diff = oid_diff + 2 ** 64
+                rate = int(oid_diff / time_diff)
+                if rate < 0:
+                    if response[get_oids].snmp_type == 'COUNTER32':
+                        oid_diff = oid_diff + 2 ** 32
+                    elif response[get_oids].snmp_type == 'COUNTER64':
+                        oid_diff = oid_diff + 2 ** 64
+                    print(str(previous_time) + "|" + str(round(oid_diff / time_diff)) + "|" + "|" + "|" + "|")
+                else:
                     print(str(previous_time) + "|" + str(rate) + "|" + "|" + "|" + "|")
-                elif response[get_oids].snmp_type == 'GAUGE':
-                    current_value = int(response[get_oids].value)
-                    previous_value = int(current_oid[get_oids - 1])
-                    diff = current_value - previous_value
-                    print(str(previous_time) + "|" + "|" + "|" + str(diff) + "|" + str(current_value) + "|")
 
     current_oid = previous_oid
     current_time = previous_time
